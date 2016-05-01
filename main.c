@@ -1,15 +1,30 @@
 #include <stdio.h>
 
+
 #include "common.h"
 #include "ipc.h"
 #include "pa1.h"
 
-int main(int argc, char *argv[]) {
-	//printf(events_log);
-	//printf("%s\n", log_received_all_done_fmt);
-	printf("Count: %d\n", argc);
-	printf("You entered: %s\n", argv[0]);
-	printf("%s\n",argv[1]);
+int childrenNumber = 5;
+
+FILE* eventsLog;
+FILE* pipesLog;
+
+void openLogFiles(){
+	eventsLog = fopen(events_log,"w+");
+	pipesLog = fopen(pipes_log,"w+");
+}
+
+void closeLogFiles(){
+	fclose(eventsLog);
+	fclose(pipesLog);
+}
+
+int main() {
+	const char *buf = "123456789";
+	openLogFiles();
+	fprintf(eventsLog, "Some text:%s", buf);
+	closeLogFiles();
 	getchar();
 	return 0;
 }		
