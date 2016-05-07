@@ -38,6 +38,7 @@ static void be_childish(int id) ////
 	char buf[64];
 	sprintf(buf, log_started_fmt, id, pid, parentProcessId);
 	write(eventsLogDescriptor, buf, strlen(buf));
+	printf("%.*s",strlen(buf),buf);
 	// "Child %d started\n", id);
     // int i;
     // char buffer[32];
