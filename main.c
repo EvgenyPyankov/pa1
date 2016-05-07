@@ -20,6 +20,18 @@ void closeLogFiles(){
 	fclose(pipesLog);
 }
 
+void pipesLogWrite(char* line)
+{
+	fprintf(pipesLog, "%s", line);
+	fflush(pipesLog);
+}
+
+void eventsLogWrite(char* line)
+{
+	fprintf(eventsLog, "%s", line);
+	fflush(eventsLog);
+}
+
 int main() {
 	const char *buf = "123456789";
 	openLogFiles();
