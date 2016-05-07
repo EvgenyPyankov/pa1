@@ -21,23 +21,27 @@ enum { MAX_NUMBER_OF_CHILDREN = 10 };
 static int write_pipes[MAX_NUMBER_OF_CHILDREN + 1][MAX_NUMBER_OF_CHILDREN + 1];
 static int read_pipes[MAX_NUMBER_OF_CHILDREN + 1][MAX_NUMBER_OF_CHILDREN + 1];
 
-static int parent_id;
 
 
 int childrenNumber;
 
-FILE* eventsLog;
-FILE* pipesLog;
+int eventsLogDescriptor;
+int pipesLogDescriptor;
 
-static void be_childish(int id) ////
+void logWrite(int descriptor, char buf[])
+{
+    write(descriptor, buf, strlen(buf));
+}
+
+void be_childish(int id) ////
 {
 	close(read_pipes[id][0]);
 	int pid = getpid();
 	int parentProcessId = getppid();
-	int eventsLogDescriptor = open(events_log, O_CREAT | O_WRONLY | O_APPEND);
+
 	char buf[64];
 	sprintf(buf, log_started_fmt, id, pid, parentProcessId);
-	write(eventsLogDescriptor, buf, strlen(buf));
+    logWrite(eventsLogDescriptor, buf);
 	printf("%.*s",strlen(buf),buf);
 	// "Child %d started\n", id);
     // int i;
@@ -63,32 +67,35 @@ static void be_childish(int id) ////
 // }
 
 void openLogFiles(){
-	eventsLog = fopen(events_log,"w+");
-	pipesLog = fopen(pipes_log,"w+");
+	eventsLogDescriptor = open(events_log, O_WRONLY | O_APPEND | O_CREAT);
+	pipesLogDescriptor = open(events_log, O_WRONLY | O_APPEND | O_CREAT);
 }
 
 void closeLogFiles(){
-	fclose(eventsLog);
-	fclose(pipesLog);
+	close(eventsLogDescriptor);
+	close(pipesLogDescriptor);
 }
 
-void pipesLogWrite(char* line)
-{
-	fprintf(pipesLog, "%s", line);
-	fflush(pipesLog);
+
+
+void prepare(){
+    remove(events_log);
+    remove(pipes_log);
+    openLogFiles();
 }
 
-void eventsLogWrite(char* line)
-{
-	fprintf(eventsLog, "%s", line);
-	fflush(eventsLog);
+void shutdown(){
+    closeLogFiles();
 }
 
 int main(int argc, char **argv) {
 	childrenNumber = atoi(argv[2]);
 
+
 	pid_t pid;
     int i, j;
+
+    prepare();
 
     /* Create pipes */
     for (i = 0; i < childrenNumber + 1; i ++)
@@ -180,6 +187,8 @@ int main(int argc, char **argv) {
     //     sleep(1);
     // }
     printf("Parent complete\n");
+
+    shutdown();
 
     return 0;
     // 
