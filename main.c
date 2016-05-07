@@ -6,6 +6,7 @@
 #include <errno.h>
 #include <string.h>
 #include <sys/wait.h>
+#include <fcntl.h>
 
 
 #include "common.h"
@@ -31,7 +32,12 @@ FILE* pipesLog;
 static void be_childish(int id) ////
 {
 	close(read_pipes[id][0]);
-	printf("Child %d started\n", id);
+	int pid = getpid();
+	int eventsLogDescriptor = open(events_log, O_WRONLY | O_APPEND);
+	char buf[64];
+	sprintf(buf, log_started_fmt, id, pid, id);
+	write(eventsLogDescriptor, buf, strlen(buf));
+	// "Child %d started\n", id);
     // int i;
     // char buffer[32];
     // int nbytes;
