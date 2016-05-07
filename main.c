@@ -21,7 +21,7 @@ enum { MAX_NUMBER_OF_CHILDREN = 10 };
 static int write_pipes[MAX_NUMBER_OF_CHILDREN + 1][MAX_NUMBER_OF_CHILDREN + 1];
 static int read_pipes[MAX_NUMBER_OF_CHILDREN + 1][MAX_NUMBER_OF_CHILDREN + 1];
 
-static int n_pipes; ///
+static int parent_id;
 
 
 int childrenNumber;
@@ -33,9 +33,10 @@ static void be_childish(int id) ////
 {
 	close(read_pipes[id][0]);
 	int pid = getpid();
+	int parentProcessId = getppid();
 	int eventsLogDescriptor = open(events_log, O_WRONLY | O_APPEND);
 	char buf[64];
-	sprintf(buf, log_started_fmt, id, pid, id);
+	sprintf(buf, log_started_fmt, id, pid, parentProcessId);
 	write(eventsLogDescriptor, buf, strlen(buf));
 	// "Child %d started\n", id);
     // int i;
