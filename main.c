@@ -34,7 +34,7 @@ static void be_childish(int id) ////
 	close(read_pipes[id][0]);
 	int pid = getpid();
 	int parentProcessId = getppid();
-	int eventsLogDescriptor = open(events_log, O_WRONLY | O_APPEND);
+	int eventsLogDescriptor = open(events_log, O_CREAT | O_WRONLY | O_APPEND);
 	char buf[64];
 	sprintf(buf, log_started_fmt, id, pid, parentProcessId);
 	write(eventsLogDescriptor, buf, strlen(buf));
@@ -56,6 +56,11 @@ static void be_childish(int id) ////
     // printf("Child %d: finished\n", pid);
     exit(0);
 }
+
+// int send_multicast(void * self, const Message * msg)
+// {
+
+// }
 
 void openLogFiles(){
 	eventsLog = fopen(events_log,"w+");
