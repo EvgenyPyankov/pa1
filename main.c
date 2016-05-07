@@ -1,9 +1,12 @@
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 
 #include "common.h"
 #include "ipc.h"
 #include "pa1.h"
+
 
 int childrenNumber = 5;
 
@@ -32,11 +35,12 @@ void eventsLogWrite(char* line)
 	fflush(eventsLog);
 }
 
-int main() {
+int main(int argc, char **argv) {
+	childrenNumber = atoi(argv[2]);
+    printf("p = %d\n", childrenNumber);
 	const char *buf = "123456789";
 	openLogFiles();
 	fprintf(eventsLog, "Some text:%s", buf);
 	closeLogFiles();
-	getchar();
 	return 0;
 }
