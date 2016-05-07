@@ -64,21 +64,12 @@ void be_childish(int id) ////
 	sprintf(buf, log_started_fmt, id, pid, parentProcessId);
     logWrite(eventsLogDescriptor, buf);
 
-	// "Child %d started\n", id);
-    // int i;
-    // char buffer[32];
-    // int nbytes;
-    // int pid = getpid();
-    // close(pipe[1]);
-    // for (i = 0; i < n_pipes; i++)
-    //     close(write_pipes[i]);
-    // printf("Child %d\n", pid);
-    // while ((nbytes = read(pipe[0], buffer, sizeof(buffer))) > 0)
-    // {
-    //     printf("Child %d: %d %.*s\n", pid, nbytes, nbytes, buffer);
-    //     fflush(0);
-    // }
-    // printf("Child %d: finished\n", pid);
+    char c;
+
+    write(write_pipes[id][0],&c, 1);
+
+
+	
     exit(0);
 }
 
@@ -163,65 +154,26 @@ int main(int argc, char **argv) {
     }
 
 
+
+
+    for (int i=1; i <= childrenNumber; i++){
+
+        char c;
+        int nbytes;
+        while ((nbytes = read(read_pipes[0][i],&c, 1)) < 0){
+        
+        }
+        printf("got from %d message %s\n", i,c );
+    }
+
     while(wait(NULL)>0) {
     }
 
-    // for (i = 0; i < NUM_CHILDREN; i++)
-    // {
-    //     int new_pipe[2];
-    //     if (pipe(new_pipe))
-    //     {
-    //         int errnum = errno;
-    //         fprintf(stderr, "Pipe failed (%d: %s)\n", errnum, strerror(errnum));
-    //         return EXIT_FAILURE;
-    //     }
-    //     if ((pid = fork()) < 0)
-    //     {
-    //         int errnum = errno;
-    //         fprintf(stderr, "Fork failed (%d: %s)\n", errnum, strerror(errnum));
-    //         return EXIT_FAILURE;
-    //     }
-    //     else if (pid == 0)
-    //     {
-    //         be_childish(new_pipe);
-    //     }
-    //     else
-    //     {
-    //         close(new_pipe[0]);
-    //         write_pipes[n_pipes++] = new_pipe[1];
-    //     }
-    // }
 
-    // for (i = 0; i < NUM_MESSAGES; i++)
-    // {
-    //     char message[30];
-    //     int len;
-    //     snprintf(message, sizeof(message), "Message %d", i);
-    //     len = strlen(message);
-    //     for (j = 0; j < n_pipes; j++)
-    //     {
-    //         if (write(write_pipes[j], message, len) != len)
-    //         {
-    //             /* Inferior error handling; first failure causes termination */
-    //             fprintf(stderr, "Write failed (child %d)\n", j);
-    //             exit(1);
-    //         }
-    //     }
-    //     sleep(1);
-    // }
     printf("Parent complete\n");
 
     shutdown();
 
     return 0;
-    // 
-    // 
-    // 
-	// childrenNumber = atoi(argv[2]);
- //    printf("p = %d\n", childrenNumber);
-	// const char *buf = "123456789";
-	// openLogFiles();
-	// fprintf(eventsLog, "Some text:%s", buf);
-	// closeLogFiles();
-	// return 0;
+ 
 }
