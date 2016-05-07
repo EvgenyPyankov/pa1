@@ -17,8 +17,8 @@ enum { NUM_MESSAGES = 10 }; ///
 
 enum { MAX_NUMBER_OF_CHILDREN = 10 };
 
-static int write_pipes[MAX_NUMBER_OF_CHILDREN + 1];
-static int read_pipes[MAX_NUMBER_OF_CHILDREN + 1];
+static int write_pipes[MAX_NUMBER_OF_CHILDREN + 1][MAX_NUMBER_OF_CHILDREN + 1];
+static int read_pipes[MAX_NUMBER_OF_CHILDREN + 1][MAX_NUMBER_OF_CHILDREN + 1];
 
 static int n_pipes; ///
 
@@ -30,6 +30,7 @@ FILE* pipesLog;
 
 static void be_childish(int id) ////
 {
+	close(read_pipes[id][0]);
 	printf("Child %d started\n", id);
     // int i;
     // char buffer[32];
@@ -74,20 +75,25 @@ int main(int argc, char **argv) {
 	childrenNumber = atoi(argv[2]);
 
 	pid_t pid;
-    int i;
+    int i, j;
 
     /* Create pipes */
     for (i = 0; i < childrenNumber + 1; i ++)
     {
-    	int new_pipe[2];
-    	if (pipe(new_pipe))
-        {
-            int errnum = errno;
-            fprintf(stderr, "Pipe failed (%d: %s)\n", errnum, strerror(errnum));
-            return EXIT_FAILURE;
-        }
-        read_pipes[i] = new_pipe[0];
-        write_pipes[i] = new_pipe[1];
+    	for (j = 0; j < i; j ++)
+    	{
+    		int new_pipe[2];
+    		if (pipe(new_pipe))
+	        {
+	            int errnum = errno;
+	            fprintf(stderr, "Pipe failed (%d: %s)\n", errnum, strerror(errnum));
+	            return EXIT_FAILURE;
+	        }
+    		read_pipes[i][j] = new_pipe[0];
+    		read_pipes[j][i] = new_pipe[0];
+    		write_pipes[i][j] = new_pipe[1];
+    		write_pipes[j][i] = new_pipe[1];
+    	}
     }
 
     /* Create children. */
@@ -106,12 +112,13 @@ int main(int argc, char **argv) {
         {
         	be_childish(i);
         } else {
-        	close(read_pipes[i]);
-        	close(write_pipes[i]);
+        	for (j = 1; j < childrenNumber; j ++)
+        	{
+        		close(write_pipes[0][j]);
+        	}
         }
     }
 
-    close(write_pipes[0]);
 
     while(wait(NULL)>0) {
     }
