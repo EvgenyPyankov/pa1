@@ -63,7 +63,7 @@ void be_childish(int id) ////
 
 void openLogFiles(){
 	eventsLogDescriptor = open(events_log, O_WRONLY | O_APPEND | O_CREAT);
-	pipesLogDescriptor = open(events_log, O_WRONLY | O_APPEND | O_CREAT);
+	pipesLogDescriptor = open(pipes_log, O_WRONLY | O_APPEND | O_CREAT);
 }
 
 void closeLogFiles(){
