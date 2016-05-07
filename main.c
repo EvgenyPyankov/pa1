@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
+#include <sys/wait.h>
 
 
 #include "common.h"
@@ -29,6 +30,7 @@ FILE* pipesLog;
 
 static void be_childish(int id) ////
 {
+	printf("Child %d started\n", id);
     // int i;
     // char buffer[32];
     // int nbytes;
@@ -107,7 +109,11 @@ int main(int argc, char **argv) {
         	close(read_pipes[i]);
         	close(write_pipes[i]);
         }
-        close(write_pipes[0]);
+    }
+
+    close(write_pipes[0]);
+
+    while(wait(NULL)>0) {
     }
 
     // for (i = 0; i < NUM_CHILDREN; i++)
