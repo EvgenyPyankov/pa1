@@ -39,4 +39,4 @@ int main() {
 	closeLogFiles();
 	getchar();
 	return 0;
-}		
+}
