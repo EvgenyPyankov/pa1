@@ -21,16 +21,37 @@ enum { MAX_NUMBER_OF_CHILDREN = 10 };
 static int write_pipes[MAX_NUMBER_OF_CHILDREN + 1][MAX_NUMBER_OF_CHILDREN + 1];
 static int read_pipes[MAX_NUMBER_OF_CHILDREN + 1][MAX_NUMBER_OF_CHILDREN + 1];
 
-
+static const char * const  new_pipe_fmt = "New pipe has been created(%d,%d)\n";
 
 int childrenNumber;
 
 int eventsLogDescriptor;
 int pipesLogDescriptor;
 
+void pipeWrite(int src, int dest, Message* msg){
+    write(write_pipes[src][dest], &msg, sizeof(msg));
+}
+
+int receive(void * self, local_id from, Message * msg){
+
+}
+
+int receive_any(void * self, Message * msg){
+
+}
+
+int send(void * self, local_id dst, const Message * msg){
+    
+}
+
+int send_multicast(void * self, const Message * msg){
+
+}
+
 void logWrite(int descriptor, char buf[])
 {
     write(descriptor, buf, strlen(buf));
+    printf("%.*s",strlen(buf),buf);
 }
 
 void be_childish(int id) ////
@@ -42,7 +63,7 @@ void be_childish(int id) ////
 	char buf[64];
 	sprintf(buf, log_started_fmt, id, pid, parentProcessId);
     logWrite(eventsLogDescriptor, buf);
-	printf("%.*s",strlen(buf),buf);
+
 	// "Child %d started\n", id);
     // int i;
     // char buffer[32];
@@ -67,8 +88,8 @@ void be_childish(int id) ////
 // }
 
 void openLogFiles(){
-	eventsLogDescriptor = open(events_log, O_WRONLY | O_APPEND | O_CREAT);
-	pipesLogDescriptor = open(pipes_log, O_WRONLY | O_APPEND | O_CREAT);
+	eventsLogDescriptor = open(events_log, O_WRONLY | O_APPEND | O_CREAT, 0666);
+	pipesLogDescriptor = open(pipes_log, O_WRONLY | O_APPEND | O_CREAT, 0666);
 }
 
 void closeLogFiles(){
@@ -87,6 +108,8 @@ void prepare(){
 void shutdown(){
     closeLogFiles();
 }
+
+
 
 int main(int argc, char **argv) {
 	childrenNumber = atoi(argv[2]);
@@ -113,6 +136,11 @@ int main(int argc, char **argv) {
     		read_pipes[j][i] = new_pipe[0];
     		write_pipes[i][j] = new_pipe[1];
     		write_pipes[j][i] = new_pipe[1];
+            char buf[64];
+            sprintf(buf, new_pipe_fmt, new_pipe[0],new_pipe[1]);
+            logWrite(pipesLogDescriptor, buf);
+            sprintf(buf, new_pipe_fmt, new_pipe[1],new_pipe[0]);
+            logWrite(pipesLogDescriptor, buf);
     	}
     }
 
