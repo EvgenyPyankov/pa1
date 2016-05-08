@@ -51,7 +51,6 @@ int receive_any(void * self, Message * msg){
 int send(void * self, local_id dst, const Message * msg){
 	int src = (int)self;
     int nbytes = write(write_pipes[src][dst], msg, sizeof(*msg));
-    printf("%d\n", sizeof(*msg));
     if (nbytes != -1) {
     	return 0;
     }
@@ -87,7 +86,6 @@ void be_childish(int id) ////
 	sprintf(buf, log_started_fmt, id, pid, parentProcessId);
     logWrite(eventsLogDescriptor, buf);
 
-<<<<<<< HEAD
     MessageHeader header = {MESSAGE_MAGIC, strlen(buf), STARTED, (int)time(NULL)};
     Message message;
     message.s_header = header;
@@ -200,21 +198,9 @@ int main(int argc, char **argv) {
 	// 	printf("receive() failed");
 	// }
 	read(read_pipes[0][2], msg, sizeof(*msg));
-	printf("%s", msg[0].s_payload);
+	printf("Message from 2: %s", msg[0].s_payload);
  //        printf("%s\n", buffer);
  //    // }
-
-
-
-    for (int i=1; i <= childrenNumber; i++){
-
-        char c;
-        int nbytes;
-        while ((nbytes = read(read_pipes[0][i],&c, 1)) < 0){
-        
-        }
-        printf("got from %d message %s\n", i,c );
-    }
 
     while(wait(NULL)>0) {
     }
