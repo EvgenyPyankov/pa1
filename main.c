@@ -38,7 +38,7 @@ void pipeWrite(int src, int dest, Message* msg){
 int receive(void * self, local_id from, Message * msg){
 	int dest = (int)self;
 	int nbytes = read(read_pipes[dest][from], msg, sizeof(*msg));
-	if (nbytes != -1) {
+	if (nbytes >= 0) {  /// ???
 		return 0;
 	}
 
@@ -46,7 +46,18 @@ int receive(void * self, local_id from, Message * msg){
 }
 
 int receive_any(void * self, Message * msg){
+	int dest = (int)self;
+	while (1) {
+		for (int i = 1; i <= childrenNumber; i ++) {
+			if (dest != i) {
+				if (receive((void *)dest, i, msg) == 0) {
+					return 0;
+				}
+			}
+		}
+	}
 
+	return -1;
 }
 
 int send(void * self, local_id dst, const Message * msg){
@@ -62,9 +73,11 @@ int send(void * self, local_id dst, const Message * msg){
 int send_multicast(void * self, const Message * msg){
 	int src = (int)self;
 	for (int i = 0; i <= childrenNumber; i ++) {
-		int result = send((void *)src, i, msg);
-		if (result != 0) {
-			return -1;
+		if (i != src) {
+			int result = send((void *)src, i, msg);
+			if (result != 0) {
+				return -1;
+			}
 		}
 	}
 
@@ -91,8 +104,8 @@ void be_childish(int id) ////
     Message message;
     message.s_header = header;
     sprintf(message.s_payload, buf, strlen(buf));
-    if (send((void *)id, 0, &message) != 0) {
-    	// printf("Send() failed");
+    if (send_multicast((void *)id, &message) != 0) {
+    	printf("send_multicast() failed");
     }
     exit(0);
 }
@@ -160,6 +173,7 @@ int main(int argc, char **argv) {
 		            return EXIT_FAILURE;
 		        }
 	    		read_pipes[j][i] = new_pipe[0];
+	    		fcntl(read_pipes[j][i], F_SETFL, O_NONBLOCK);
 	    		write_pipes[i][j] = new_pipe[1];
 	            // char buf[64];
 	            // sprintf(buf, new_pipe_fmt, new_pipe[0],new_pipe[1]);
@@ -190,22 +204,29 @@ int main(int argc, char **argv) {
         }
     }
 
-	int nbytes;
-	Message* msg = malloc(sizeof(*msg));
- //    // for (int i=1; i <= childrenNumber; i++){
- //    // 	printf("%d\n", read_pipes[0][i]);
- //    	char buffer[64];
+// Message* msg = malloc(sizeof(*msg));
+		    // // for (int i=1; i <= childrenNumber; i++){
+		    // // 	printf("%d\n", read_pipes[0][i]);
+		    // 	char buffer[64];
 	// if (receive((void *)0, 3, &message) != 0 ) {
 	// 	printf("receive() failed");
 	// }
 	
 	// read(read_pipes[0][2], msg, sizeof(*msg));
-	receive((void *)0, 2, msg);
-	printf("Message from 2: %s", msg[0].s_payload);
+// receive_any((void *)0, msg);
+// printf("Message: %s", msg[0].s_payload);
+
+	// Message* msg2 = malloc(sizeof(*msg2));
+	// if (receive((void *)0, 2, msg2) != 0){
+	// 	printf("second message is not received()");
+	// }
  //        printf("%s\n", buffer);
  //    // }
 
     while(wait(NULL)>0) {
+    	Message* msg = malloc(sizeof(*msg));
+    	receive_any((void *)0, msg);
+    	printf("0 received message: %s", msg[0].s_payload);
     }
 
 
