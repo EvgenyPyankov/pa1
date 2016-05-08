@@ -124,6 +124,18 @@ void be_childish(int id) ////
     }
     sprintf(buf, log_received_all_started_fmt, id);
     logWrite(eventsLogDescriptor, buf);
+
+    sprintf(buf, log_done_fmt, id);
+    logWrite(eventsLogDescriptor, buf);
+
+    MessageHeader header2 = {MESSAGE_MAGIC, strlen(buf), DONE, (int)time(NULL)};
+    Message message2;
+    message2.s_header = header2;
+    sprintf(message2.s_payload, buf, strlen(buf));
+    if (send_multicast((void *)id, &message2) != 0) {
+    	printf("send_multicast() failed");
+    }
+
     exit(0);
 }
 
