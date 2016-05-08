@@ -107,6 +107,17 @@ void be_childish(int id) ////
     if (send_multicast((void *)id, &message) != 0) {
     	printf("send_multicast() failed");
     }
+
+    int numberOfReceivedStartedMessages = 0;
+    int numberOfReceivedDoneMessages = 0;
+    while (numberOfReceivedStartedMessages < childrenNumber - 1) {
+    	Message* msg = malloc(sizeof(*msg));
+    	if (receive_any((void *)id, msg) != 0) {
+    		printf("receive_any() failed");
+    	}
+    	printf("%d received message: %s", id, msg[0].s_payload);
+    	numberOfReceivedStartedMessages = numberOfReceivedStartedMessages + 1;
+    }
     exit(0);
 }
 
