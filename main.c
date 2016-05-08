@@ -36,12 +36,13 @@ void pipeWrite(int src, int dest, Message* msg){
 }
 
 int receive(void * self, local_id from, Message * msg){
-	// int nbytes = read(read_pipes[0][2], buffer, sizeof(buffer));
-	// if (nbytes != -1) {
-	// 	return 0;
-	// }
+	int dest = (int)self;
+	int nbytes = read(read_pipes[dest][from], msg, sizeof(*msg));
+	if (nbytes != -1) {
+		return 0;
+	}
 
-	// return -1;
+	return -1;
 }
 
 int receive_any(void * self, Message * msg){
@@ -197,7 +198,9 @@ int main(int argc, char **argv) {
 	// if (receive((void *)0, 3, &message) != 0 ) {
 	// 	printf("receive() failed");
 	// }
-	read(read_pipes[0][2], msg, sizeof(*msg));
+	
+	// read(read_pipes[0][2], msg, sizeof(*msg));
+	receive((void *)0, 2, msg);
 	printf("Message from 2: %s", msg[0].s_payload);
  //        printf("%s\n", buffer);
  //    // }
