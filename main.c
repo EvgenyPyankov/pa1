@@ -135,7 +135,19 @@ void be_childish(int id) ////
     if (send_multicast((void *)id, &message2) != 0) {
     	printf("send_multicast() failed");
     }
+    while (numberOfReceivedDoneMessages < childrenNumber - 1) {
+    	Message* msg = malloc(sizeof(*msg));
+    	if (receive_any((void *)id, msg) != 0) {
+    		printf("receive_any() failed");
+    	}
+    	printf("%d received message: %s", id, msg[0].s_payload);
+    	if (msg[0].s_header.s_type == DONE) {
+    		numberOfReceivedDoneMessages = numberOfReceivedDoneMessages + 1;
+    	}
+    }
 
+    sprintf(buf, log_received_all_done_fmt, id);
+    logWrite(eventsLogDescriptor, buf);
     exit(0);
 }
 
@@ -251,11 +263,24 @@ int main(int argc, char **argv) {
 	// }
  //        printf("%s\n", buffer);
  //    // }
+ //    
+    
+    int numberOfReceivedStartedMessages = 0;
+    int numberOfReceivedDoneMessages = 0;
+    while (numberOfReceivedStartedMessages < childrenNumber || numberOfReceivedDoneMessages < childrenNumber) {
+    	Message* msg = malloc(sizeof(*msg));
+    	if (receive_any((void *)0, msg) != 0) {
+    		printf("receive_any() failed");
+    	}
+    	printf("%d received message: %s", 0, msg[0].s_payload);
+    	if (msg[0].s_header.s_type == STARTED) {
+    		numberOfReceivedStartedMessages = numberOfReceivedStartedMessages + 1;
+    	} else if (msg[0].s_header.s_type == DONE) {
+    		numberOfReceivedDoneMessages = numberOfReceivedDoneMessages + 1;
+    	}
+    }
 
     while(wait(NULL)>0) {
-    	Message* msg = malloc(sizeof(*msg));
-    	receive_any((void *)0, msg);
-    	printf("0 received message: %s", msg[0].s_payload);
     }
 
 
