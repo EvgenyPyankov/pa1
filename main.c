@@ -14,10 +14,6 @@
 #include "ipc.h"
 #include "pa1.h"
 
-// http://cboard.cprogramming.com/c-programming/119168-sending-structs-pointers-through-pipes.html
-
-enum { NUM_CHILDREN = 10 }; ///
-enum { NUM_MESSAGES = 10 }; ///
 
 enum { MAX_NUMBER_OF_CHILDREN = 10 };
 
@@ -27,13 +23,13 @@ static int read_pipes[MAX_NUMBER_OF_CHILDREN + 1][MAX_NUMBER_OF_CHILDREN + 1];
 static const char * const  new_pipe_fmt = "New pipe has been created(%d,%d)\n";
 
 int childrenNumber;
+int numberOfReceivedStartedMessages = 0;
+int numberOfReceivedDoneMessages = 0;
+int id;
 
 int eventsLogDescriptor;
 int pipesLogDescriptor;
-
-void pipeWrite(int src, int dest, Message* msg){
-    write(write_pipes[src][dest], &msg, sizeof(msg));
-}
+char buf[64];
 
 int receive(void * self, local_id from, Message * msg){
 	int dest = (int)self;
@@ -84,88 +80,97 @@ int send_multicast(void * self, const Message * msg){
 	return 0;
 }
 
-void logWrite(int descriptor, char buf[])
+void logWrite(int descriptor, char buffer[])
 {
-    write(descriptor, buf, strlen(buf));
-    printf("%.*s",strlen(buf),buf);
+    write(descriptor, buffer, strlen(buffer));
+    printf("%.*s",strlen(buffer),buffer);
 }
 
-void be_childish(int id) ////
-{
-	close(read_pipes[id][0]);
+Message createMessage(int m_type, char buffer[]) {
+	MessageHeader header = {MESSAGE_MAGIC, strlen(buffer), m_type, (int)time(NULL)};
+    Message message;
+    message.s_header = header;
+    sprintf(message.s_payload, buffer, strlen(buffer));
+    return message;
+}
+
+void started() {
 	int pid = getpid();
 	int parentProcessId = getppid();
 	
-	char buf[64];
 	sprintf(buf, log_started_fmt, id, pid, parentProcessId);
     logWrite(eventsLogDescriptor, buf);
 
-    MessageHeader header = {MESSAGE_MAGIC, strlen(buf), STARTED, (int)time(NULL)};
-    Message message;
-    message.s_header = header;
-    sprintf(message.s_payload, buf, strlen(buf));
+    Message message = createMessage(STARTED, buf);
+
     if (send_multicast((void *)id, &message) != 0) {
     	printf("send_multicast() failed");
     }
+}
 
-    int numberOfReceivedStartedMessages = 0;
-    int numberOfReceivedDoneMessages = 0;
+void receiveAllStartedMessages() {
     while (numberOfReceivedStartedMessages < childrenNumber - 1) {
-    	Message* msg = malloc(sizeof(*msg));
-    	if (receive_any((void *)id, msg) != 0) {
-    		printf("receive_any() failed");
-    	}
-    	printf("%d received message: %s", id, msg[0].s_payload);
-    	if (msg[0].s_header.s_type == STARTED) {
-    		numberOfReceivedStartedMessages = numberOfReceivedStartedMessages + 1;
-    	} else if (msg[0].s_header.s_type == DONE) {
-    		numberOfReceivedDoneMessages = numberOfReceivedDoneMessages + 1;
-    	}
-    }
+		Message* msg = malloc(sizeof(*msg));
+		if (receive_any((void *)id, msg) != 0) {
+			printf("receive_any() failed");
+		}
+
+		if (msg[0].s_header.s_type == STARTED) {
+			numberOfReceivedStartedMessages = numberOfReceivedStartedMessages + 1;
+		} else if (msg[0].s_header.s_type == DONE) {
+			numberOfReceivedDoneMessages = numberOfReceivedDoneMessages + 1;
+		}
+	}
+}
+
+void receivedAllStarted() {
     sprintf(buf, log_received_all_started_fmt, id);
     logWrite(eventsLogDescriptor, buf);
+}
 
+void done() {
     sprintf(buf, log_done_fmt, id);
     logWrite(eventsLogDescriptor, buf);
 
-    MessageHeader header2 = {MESSAGE_MAGIC, strlen(buf), DONE, (int)time(NULL)};
-    Message message2;
-    message2.s_header = header2;
-    sprintf(message2.s_payload, buf, strlen(buf));
-    if (send_multicast((void *)id, &message2) != 0) {
+    Message message = createMessage(DONE, buf);
+
+    if (send_multicast((void *)id, &message) != 0) {
     	printf("send_multicast() failed");
     }
+}
+
+void receiveAllDoneMessages() {
     while (numberOfReceivedDoneMessages < childrenNumber - 1) {
     	Message* msg = malloc(sizeof(*msg));
     	if (receive_any((void *)id, msg) != 0) {
     		printf("receive_any() failed");
     	}
-    	printf("%d received message: %s", id, msg[0].s_payload);
+
     	if (msg[0].s_header.s_type == DONE) {
     		numberOfReceivedDoneMessages = numberOfReceivedDoneMessages + 1;
     	}
     }
-
-    sprintf(buf, log_received_all_done_fmt, id);
-    logWrite(eventsLogDescriptor, buf);
-    exit(0);
 }
 
-	// "Child %d started\n", id);
-    // int i;
-    // char buffer[32];
-    // int nbytes;
-    // int pid = getpid();
-    // close(pipe[1]);
-    // for (i = 0; i < n_pipes; i++)
-    //     close(write_pipes[i]);
-    // printf("Child %d\n", pid);
-    // while ((nbytes = read(pipe[0], buffer, sizeof(buffer))) > 0)
-    // {
-    //     printf("Child %d: %d %.*s\n", pid, nbytes, nbytes, buffer);
-    //     fflush(0);
-    // }
-    // printf("Child %d: finished\n", pid);
+void receivedAllDoneMessages() {
+    sprintf(buf, log_received_all_done_fmt, id);
+    logWrite(eventsLogDescriptor, buf);
+}
+
+void be_childish(int local_id)
+{
+	id = local_id;
+	close(read_pipes[id][0]);
+
+	started();
+    receiveAllStartedMessages();
+    receivedAllStarted();
+    done();
+    receiveAllDoneMessages();
+    receivedAllDoneMessages();
+
+    exit(0);
+}
 
 void openLogFiles(){
 	eventsLogDescriptor = open(events_log, O_WRONLY | O_APPEND | O_CREAT, 0666);
@@ -189,18 +194,8 @@ void shutdown(){
     closeLogFiles();
 }
 
-
-
-int main(int argc, char **argv) {
-	childrenNumber = atoi(argv[2]);
-
-
-	pid_t pid;
-    int i, j;
-
-    prepare();
-
-    /* Create pipes */
+void createPipes() {
+	int i, j;
     for (i = 0; i < childrenNumber + 1; i ++)
     {
     	for (j = 0; j < childrenNumber + 1; j ++)
@@ -211,30 +206,29 @@ int main(int argc, char **argv) {
 		        {
 		            int errnum = errno;
 		            fprintf(stderr, "Pipe failed (%d: %s)\n", errnum, strerror(errnum));
-		            return EXIT_FAILURE;
+		            return;
 		        }
 	    		read_pipes[j][i] = new_pipe[0];
 	    		fcntl(read_pipes[j][i], F_SETFL, O_NONBLOCK);
 	    		write_pipes[i][j] = new_pipe[1];
-	            // char buf[64];
-	            // sprintf(buf, new_pipe_fmt, new_pipe[0],new_pipe[1]);
-	            // logWrite(pipesLogDescriptor, buf);
-	            // sprintf(buf, new_pipe_fmt, new_pipe[1],new_pipe[0]);
-	            // logWrite(pipesLogDescriptor, buf);
+	            char buf[64];
+	            sprintf(buf, new_pipe_fmt, new_pipe[0],new_pipe[1]);
+	            write(pipesLogDescriptor, buf, strlen(buf));
 	        }
     	}
     }
+}
 
-    /* Create children. */
-    for (i = 1; i <= childrenNumber; i ++)
+void createChildren() {
+	for (int i = 1; i <= childrenNumber; i ++)
     {
-    	pid = fork();
+    	pid_t pid = fork();
 
     	if (pid < 0)
         {
             int errnum = errno;
             fprintf(stderr, "Fork failed (%d: %s)\n", errnum, strerror(errnum));
-            return EXIT_FAILURE;
+            return;
         }
 
         if (pid == 0)
@@ -243,48 +237,36 @@ int main(int argc, char **argv) {
         } else {
     		close(write_pipes[0][i]);
         }
-    }
+    } 
+}
 
-// Message* msg = malloc(sizeof(*msg));
-		    // // for (int i=1; i <= childrenNumber; i++){
-		    // // 	printf("%d\n", read_pipes[0][i]);
-		    // 	char buffer[64];
-	// if (receive((void *)0, 3, &message) != 0 ) {
-	// 	printf("receive() failed");
-	// }
-	
-	// read(read_pipes[0][2], msg, sizeof(*msg));
-// receive_any((void *)0, msg);
-// printf("Message: %s", msg[0].s_payload);
-
-	// Message* msg2 = malloc(sizeof(*msg2));
-	// if (receive((void *)0, 2, msg2) != 0){
-	// 	printf("second message is not received()");
-	// }
- //        printf("%s\n", buffer);
- //    // }
- //    
-    
-    int numberOfReceivedStartedMessages = 0;
-    int numberOfReceivedDoneMessages = 0;
+void receiveMessages() {
     while (numberOfReceivedStartedMessages < childrenNumber || numberOfReceivedDoneMessages < childrenNumber) {
     	Message* msg = malloc(sizeof(*msg));
     	if (receive_any((void *)0, msg) != 0) {
     		printf("receive_any() failed");
     	}
-    	printf("%d received message: %s", 0, msg[0].s_payload);
+
     	if (msg[0].s_header.s_type == STARTED) {
     		numberOfReceivedStartedMessages = numberOfReceivedStartedMessages + 1;
     	} else if (msg[0].s_header.s_type == DONE) {
     		numberOfReceivedDoneMessages = numberOfReceivedDoneMessages + 1;
     	}
     }
+}
+
+
+
+int main(int argc, char **argv) {
+	childrenNumber = atoi(argv[2]);
+
+    prepare();
+    createPipes();
+    createChildren();
+    receiveMessages();
 
     while(wait(NULL)>0) {
     }
-
-
-    printf("Parent complete\n");
 
     shutdown();
 
