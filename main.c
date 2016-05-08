@@ -116,8 +116,14 @@ void be_childish(int id) ////
     		printf("receive_any() failed");
     	}
     	printf("%d received message: %s", id, msg[0].s_payload);
-    	numberOfReceivedStartedMessages = numberOfReceivedStartedMessages + 1;
+    	if (msg[0].s_header.s_type == STARTED) {
+    		numberOfReceivedStartedMessages = numberOfReceivedStartedMessages + 1;
+    	} else if (msg[0].s_header.s_type == DONE) {
+    		numberOfReceivedDoneMessages = numberOfReceivedDoneMessages + 1;
+    	}
     }
+    sprintf(buf, log_received_all_started_fmt, id);
+    logWrite(eventsLogDescriptor, buf);
     exit(0);
 }
 
