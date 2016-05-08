@@ -1,3 +1,4 @@
+#define _BSD_SOURCE
 #include <sys/types.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -8,11 +9,15 @@
 #include <sys/wait.h>
 #include <fcntl.h>
 #include <time.h>
+#include <stdint.h>
+#include <unistd.h>
 
 
 #include "common.h"
 #include "ipc.h"
 #include "pa1.h"
+
+#define INT2VOIDP(i) (void*)(uintptr_t)(i)
 
 
 enum { MAX_NUMBER_OF_CHILDREN = 10 };
@@ -20,7 +25,7 @@ enum { MAX_NUMBER_OF_CHILDREN = 10 };
 static int write_pipes[MAX_NUMBER_OF_CHILDREN + 1][MAX_NUMBER_OF_CHILDREN + 1];
 static int read_pipes[MAX_NUMBER_OF_CHILDREN + 1][MAX_NUMBER_OF_CHILDREN + 1];
 
-static const char * const  new_pipe_fmt = "New pipe has been created(%d,%d)\n";
+static const char * const  new_pipe_fmt = "Pipe r: %d w: %d (%d,%d)\n";
 
 int childrenNumber;
 int numberOfReceivedStartedMessages = 0;
@@ -34,7 +39,7 @@ char buf[64];
 int receive(void * self, local_id from, Message * msg){
 	int dest = (int)self;
 	int nbytes = read(read_pipes[dest][from], msg, sizeof(*msg));
-	if (nbytes >= 0) {  /// ???
+	if (nbytes > 0) {  /// ???
 		return 0;
 	}
 
@@ -46,9 +51,10 @@ int receive_any(void * self, Message * msg){
 	while (1) {
 		for (int i = 1; i <= childrenNumber; i ++) {
 			if (dest != i) {
-				if (receive((void *)dest, i, msg) == 0) {
+				if (receive(self, i, msg) == 0) {
 					return 0;
 				}
+                usleep(20000);
 			}
 		}
 	}
@@ -70,7 +76,7 @@ int send_multicast(void * self, const Message * msg){
 	int src = (int)self;
 	for (int i = 0; i <= childrenNumber; i ++) {
 		if (i != src) {
-			int result = send((void *)src, i, msg);
+			int result = send(self, i, msg);
 			if (result != 0) {
 				return -1;
 			}
@@ -83,7 +89,7 @@ int send_multicast(void * self, const Message * msg){
 void logWrite(int descriptor, char buffer[])
 {
     write(descriptor, buffer, strlen(buffer));
-    printf("%.*s",strlen(buffer),buffer);
+    printf("%.*s",(int)strlen(buffer),buffer);
 }
 
 Message createMessage(int m_type, char buffer[]) {
@@ -103,7 +109,7 @@ void started() {
 
     Message message = createMessage(STARTED, buf);
 
-    if (send_multicast((void *)id, &message) != 0) {
+    if (send_multicast(INT2VOIDP(id), &message) != 0) {
     	printf("send_multicast() failed");
     }
 }
@@ -111,7 +117,7 @@ void started() {
 void receiveAllStartedMessages() {
     while (numberOfReceivedStartedMessages < childrenNumber - 1) {
 		Message* msg = malloc(sizeof(*msg));
-		if (receive_any((void *)id, msg) != 0) {
+		if (receive_any(INT2VOIDP(id), msg) != 0) {
 			printf("receive_any() failed");
 		}
 
@@ -134,7 +140,7 @@ void done() {
 
     Message message = createMessage(DONE, buf);
 
-    if (send_multicast((void *)id, &message) != 0) {
+    if (send_multicast(INT2VOIDP(id), &message) != 0) {
     	printf("send_multicast() failed");
     }
 }
@@ -142,7 +148,7 @@ void done() {
 void receiveAllDoneMessages() {
     while (numberOfReceivedDoneMessages < childrenNumber - 1) {
     	Message* msg = malloc(sizeof(*msg));
-    	if (receive_any((void *)id, msg) != 0) {
+    	if (receive_any(INT2VOIDP(id), msg) != 0) {
     		printf("receive_any() failed");
     	}
 
@@ -160,7 +166,15 @@ void receivedAllDoneMessages() {
 void be_childish(int local_id)
 {
 	id = local_id;
-	close(read_pipes[id][0]);
+
+    for (int i = 0; i <= childrenNumber; i ++) {
+        for (int j = 0; j <= childrenNumber; j ++) {
+            if (i != id && i != j) {
+                close(read_pipes[i][j]);
+                close(write_pipes[i][j]);
+            }
+        }
+    }
 
 	started();
     receiveAllStartedMessages();
@@ -177,21 +191,10 @@ void openLogFiles(){
 	pipesLogDescriptor = open(pipes_log, O_WRONLY | O_APPEND | O_CREAT, 0666);
 }
 
-void closeLogFiles(){
-	close(eventsLogDescriptor);
-	close(pipesLogDescriptor);
-}
-
-
-
 void prepare(){
     remove(events_log);
     remove(pipes_log);
     openLogFiles();
-}
-
-void shutdown(){
-    closeLogFiles();
 }
 
 void createPipes() {
@@ -212,11 +215,12 @@ void createPipes() {
 	    		fcntl(read_pipes[j][i], F_SETFL, O_NONBLOCK);
 	    		write_pipes[i][j] = new_pipe[1];
 	            char buf[64];
-	            sprintf(buf, new_pipe_fmt, new_pipe[0],new_pipe[1]);
+	            sprintf(buf, new_pipe_fmt, j, i, new_pipe[0],new_pipe[1]);
 	            write(pipesLogDescriptor, buf, strlen(buf));
 	        }
     	}
     }
+    close(pipesLogDescriptor);
 }
 
 void createChildren() {
@@ -235,17 +239,27 @@ void createChildren() {
         {
         	be_childish(i);
         } else {
-    		close(write_pipes[0][i]);
         }
-    } 
+    }
+    for (int i = 1; i <= childrenNumber; i ++) {
+        for (int j = 0; j <= childrenNumber; j ++) {
+            if (i != j) {
+                close(read_pipes[i][j]);
+                close(write_pipes[i][j]);
+            }
+        }
+    }
+    close(eventsLogDescriptor);
 }
 
 void receiveMessages() {
     while (numberOfReceivedStartedMessages < childrenNumber || numberOfReceivedDoneMessages < childrenNumber) {
     	Message* msg = malloc(sizeof(*msg));
-    	if (receive_any((void *)0, msg) != 0) {
+    	if (receive_any(INT2VOIDP(0), msg) != 0) {
     		printf("receive_any() failed");
     	}
+
+        // printf("%d received message: %s", 0, msg[0].s_payload); ///
 
     	if (msg[0].s_header.s_type == STARTED) {
     		numberOfReceivedStartedMessages = numberOfReceivedStartedMessages + 1;
@@ -267,8 +281,6 @@ int main(int argc, char **argv) {
 
     while(wait(NULL)>0) {
     }
-
-    shutdown();
 
     return 0;
  
