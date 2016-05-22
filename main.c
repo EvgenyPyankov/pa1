@@ -38,12 +38,12 @@ char buf[64];
 
 int receive(void * self, local_id from, Message * msg){
 	int dest = (int)self;
-	int nbytes = read(read_pipes[dest][from], msg, sizeof(*msg));
-	if (nbytes > 0) {  /// ???
-		return 0;
-	}
-
-	return -1;
+    int nbytes = read(read_pipes[dest][from], &msg[0].s_header, sizeof(MessageHeader));
+    if (nbytes <= 0) {
+        return -1;
+    }
+    read(read_pipes[dest][from], msg[0].s_payload, msg[0].s_header.s_payload_len);
+    return 0;
 }
 
 int receive_any(void * self, Message * msg){
@@ -64,7 +64,7 @@ int receive_any(void * self, Message * msg){
 
 int send(void * self, local_id dst, const Message * msg){
 	int src = (int)self;
-    int nbytes = write(write_pipes[src][dst], msg, sizeof(*msg));
+    int nbytes = write(write_pipes[src][dst], msg, sizeof(MessageHeader) + msg[0].s_header.s_payload_len);
     if (nbytes != -1) {
     	return 0;
     }
